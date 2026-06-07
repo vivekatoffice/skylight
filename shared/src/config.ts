@@ -90,6 +90,25 @@ export interface TrackerConfig {
     /** Carrot lead horizon, s, and re-issue cadence, ms. */
     carrotHorizonSec: number;
     carrotMs: number;
+    /**
+     * Position-smoothing strength 0..1: denoise the plane's ADS-B position
+     * before aiming so the camera follows the smooth predicted PATH rather
+     * than jittering to each noisy fix. 0 = off (raw fix). ~0.7 = smooth.
+     */
+    posSmoothing: number;
+    /**
+     * Pose-error low-pass 0..1 for the velocity loop's P term: damps the
+     * spikes from position-inquiry replies snapping after a stall. 0 = off,
+     * ~0.4 = gentle. Higher trades a little correction speed for smoothness.
+     */
+    errSmoothing: number;
+    /**
+     * Cap on how fast the commanded velocity may change, deg/s² (jerk limit).
+     * Turns any residual command step into a brief smooth ramp. Set well
+     * below the camera's physical accel (~180°/s²) only enough to catch
+     * spikes; 0 = off.
+     */
+    maxAccelDps2: number;
   };
   zoom: {
     auto: boolean;
@@ -367,6 +386,9 @@ export const DEFAULT_CONFIG: Config = {
       pursuit: "velocity",
       carrotHorizonSec: 1.5,
       carrotMs: 600,
+      posSmoothing: 0.7,
+      errSmoothing: 0.4,
+      maxAccelDps2: 120,
     },
     zoom: {
       auto: true,

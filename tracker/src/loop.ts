@@ -65,9 +65,12 @@ export class ControlLoop {
   private atHome = false;
   /** Last carrot re-issue time. */
   private lastCarrotAt = 0;
-  /** Last commanded velocity rates (direction-flip hysteresis). */
+  /** Last commanded velocity rates (direction-flip hysteresis + accel cap). */
   private lastPanRateCmd = 0;
   private lastTiltRateCmd = 0;
+  /** Low-passed pose error for the velocity P term (pose-snap spike damping). */
+  private errPanLP = 0;
+  private errTiltLP = 0;
   /** Learned rate deficit (integral term) — the dither's accel transients
    *  make the true average rate run under the commanded one, and P alone
    *  holds a steady error to compensate (= visible trailing). */
@@ -295,6 +298,10 @@ export class ControlLoop {
     this.lastLadderAt = 0;
     this.panRateI = 0;
     this.tiltRateI = 0;
+    this.lastPanRateCmd = 0;
+    this.lastTiltRateCmd = 0;
+    this.errPanLP = 0;
+    this.errTiltLP = 0;
   }
 
   private tick(): void {
@@ -513,15 +520,23 @@ export class ControlLoop {
         // PI on the pose error: P pulls toward the setpoint, I learns the
         // systematic rate deficit (dither accel transients) so the camera
         // CENTERS the plane instead of trailing it by a held error.
-        const KP = 1.5; // 1/s
+        const KP = 1.2; // 1/s (was 1.5 — gentler P leans on the feedforward)
         const KI = 0.6; // 1/s² — converges in ~2-3 s, anti-windup below
         const dtTick = 1 / (cfg.predict.commandHz || 15);
+        // Low-pass the pose error before the P term: the dead-reckoned pose
+        // SNAPS when an inquiry reply lands after a stall, and raw P turns
+        // each snap into a velocity step (wobble). The filter rides through
+        // the snap; real tracking error changes slowly enough to pass.
+        const eS = clamp(cfg.predict.errSmoothing ?? 0, 0, 0.95);
+        this.errPanLP += (1 - eS) * (errPan - this.errPanLP);
+        this.errTiltLP += (1 - eS) * (errTilt - this.errTiltLP);
+        // Integrate the (raw) error so steady bias still converges out.
         this.panRateI = clamp(this.panRateI + KI * errPan * dtTick, -6, 6);
         this.tiltRateI = clamp(this.tiltRateI + KI * errTilt * dtTick, -6, 6);
         let panRate =
-          this.azTracker.rate / cfg.mount.panGain + KP * errPan + this.panRateI;
+          this.azTracker.rate / cfg.mount.panGain + KP * this.errPanLP + this.panRateI;
         let tiltRate =
-          this.elTracker.rate / cfg.mount.tiltGain + KP * errTilt + this.tiltRateI;
+          this.elTracker.rate / cfg.mount.tiltGain + KP * this.errTiltLP + this.tiltRateI;
         // Deadband so the camera rests when locked on (frame-relative: what
         // counts as "centered" is a fraction of the field of view, not a
         // fixed angle). The driver dithers against stop below the table
@@ -552,6 +567,22 @@ export class ControlLoop {
         // integrator instead of accumulating against a motionless camera.
         if (panRate === 0) this.panRateI *= 0.9;
         if (tiltRate === 0) this.tiltRateI *= 0.9;
+        // Jerk limit: cap how fast the COMMANDED velocity may change, turning
+        // any residual step into a brief smooth ramp ("one smooth movement").
+        // Resting (rate 0 from deadband) is exempt so it can still stop
+        // promptly when truly centered.
+        const accel = cfg.predict.maxAccelDps2 ?? 0;
+        if (accel > 0) {
+          const maxStep = accel * dtTick;
+          if (panRate !== 0) {
+            panRate = this.lastPanRateCmd +
+              clamp(panRate - this.lastPanRateCmd, -maxStep, maxStep);
+          }
+          if (tiltRate !== 0) {
+            tiltRate = this.lastTiltRateCmd +
+              clamp(tiltRate - this.lastTiltRateCmd, -maxStep, maxStep);
+          }
+        }
         this.lastPanRateCmd = panRate;
         this.lastTiltRateCmd = tiltRate;
         d.trackRate(panRate, tiltRate);
