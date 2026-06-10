@@ -147,6 +147,14 @@ body {
 .record-list .rec-del:hover {
   color: var(--bad);
 }
+.record-list li.stab a {
+  color: #6fe0c0;
+}
+.record-list .rec-busy {
+  font-size: 11px;
+  color: var(--accent);
+  font-style: italic;
+}
 
 .segmented { display: inline-flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
 .segment {

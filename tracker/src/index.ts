@@ -96,6 +96,7 @@ async function main(): Promise<void> {
     swapDriver,
     () => mse.status(),
     () => videoRec.status(),
+    (cx, cy, t) => videoRec.noteDetection(cx, cy, t),
   );
 
   const hub = new TrackerHub(loop, upstream, recorder, video, videoRec);

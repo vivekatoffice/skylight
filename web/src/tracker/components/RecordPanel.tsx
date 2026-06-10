@@ -9,6 +9,8 @@ interface Rec {
   name: string;
   sizeBytes: number;
   mtime: number;
+  stabilized?: boolean;
+  stabilizing?: boolean;
 }
 
 function fmtSize(b: number): string {
@@ -49,6 +51,14 @@ export function RecordPanel({
     wasRecording.current = rec.recording;
   }, [rec.recording, refresh]);
 
+  // While anything is stabilizing, poll so the finished clip appears.
+  const anyStabilizing = recs.some((r) => r.stabilizing);
+  useEffect(() => {
+    if (!anyStabilizing) return;
+    const id = setInterval(refresh, 4000);
+    return () => clearInterval(id);
+  }, [anyStabilizing, refresh]);
+
   const toggle = () => {
     fetch(trackerHttp("/api/record/video"), {
       method: "POST",
@@ -88,10 +98,13 @@ export function RecordPanel({
       {recs.length > 0 && (
         <ul className="record-list">
           {recs.map((r) => (
-            <li key={r.name}>
+            <li key={r.name} className={r.stabilized ? "stab" : ""}>
               <a href={trackerHttp(`/recordings/${r.name}`)} download>
-                {r.name.replace(/^clip-/, "").replace(/\.mp4$/, "")}
+                {r.stabilized ? "✦ " : ""}
+                {r.name.replace(/^clip-/, "").replace(/-stab/, "").replace(/\.mp4$/, "")}
+                {r.stabilized ? " (smooth)" : ""}
               </a>
+              {r.stabilizing && <span className="rec-busy">stabilizing…</span>}
               <span className="rec-size">{fmtSize(r.sizeBytes)}</span>
               <button className="rec-del" aria-label={`delete ${r.name}`} onClick={() => del(r.name)}>
                 ×

@@ -157,6 +157,7 @@ export class ControlLoop {
       file?: string;
       startedAt?: number;
     } = () => ({ recording: false }),
+    private videoRecNote: (cx: number, cy: number, t: number) => void = () => {},
   ) {}
 
   // --- lifecycle ---
@@ -1064,6 +1065,8 @@ export class ControlLoop {
           offAzDeg: offAz,
           offElDeg,
         };
+        // Feed the live plane position to the recorder (for offline stabilization).
+        this.videoRecNote(o.cx, o.cy, frameT);
 
         const steady = aimRateDps < 8 && elF < 75;
         // The lock IS the temporal confirmation now: a track only becomes
