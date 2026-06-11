@@ -24,6 +24,15 @@ services:
     volumes:
       # Persist config.json + route/TLE caches across restarts.
       - skylight-data:/app/server/data
+    # To reach a decoder running in ANOTHER compose project (e.g. ultrafeeder),
+    # join its network so the container name resolves — then use
+    # AIRCRAFT_JSON_URL: http://ultrafeeder:8080/data/aircraft.json
+    # networks: [adsb]
+
+# networks:
+#   adsb:
+#     external: true
+#     name: <the decoder project's network — see `docker network ls`>
 
 volumes:
   skylight-data:

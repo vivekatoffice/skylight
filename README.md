@@ -32,7 +32,8 @@ constellations, and live **satellites including the ISS** - all at their true po
 for your location and time. Tune everything from your phone.
 
 > Reference build is centered on **San Francisco International (SFO)**, but it works
-> anywhere - set your coordinates (and swap the runway data) and you're flying.
+> anywhere - set your location in the control panel and import your airport's runways
+> by ICAO/IATA code (worldwide, via OurAirports) and you're flying.
 
 ## Features
 
@@ -131,8 +132,11 @@ DATA_SOURCE=api pnpm dev
   prediction, zoom, calibration) works with zero hardware.
 - **TV dashboard:** http://localhost:5173/tv.html
 
-Set your location in the control panel area is coming; for now set `centerLat` /
-`centerLon` in [`shared/src/config.ts`](shared/src/config.ts) (defaults to SFO).
+**Then set your location** from the control panel's **Location** section - search a
+city/airport, tap **Current** to use the browser's location, or type `lat,lon`
+directly. The default is SFO, so until you change it you'll see San Francisco traffic
+(or nothing, if your radius is small). Your airport's runways can be drawn too:
+type its ICAO/IATA code into **Location → Runways** and they're imported automatically.
 
 ### With a radio (locally)
 
@@ -195,6 +199,49 @@ Config and the route/TLE caches persist in the `skylight-data` volume. The image
 **server + display only** - the optional sky-camera tracker (which wants direct camera +
 GPU access) is not containerized. If you reach the server over a custom hostname or a
 tunnel rather than a LAN IP / `*.local`, add it to `ALLOWED_HOSTS` (see below).
+
+> **Reaching a decoder in another container:** the fetch happens **from inside the
+> Skylight container**, so `localhost` won't work and a sibling container's name only
+> resolves if both containers share a Docker network. Either use the decoder host's
+> LAN IP (e.g. `http://192.168.1.50:8080/data/aircraft.json`), or attach Skylight to
+> the decoder's network (see the commented `networks:` block in `compose.yaml`).
+> The status line in `/control` shows *why* a fetch fails (DNS, refused, timeout).
+
+## Troubleshooting
+
+**No planes, using the public API.** The view is centered on SFO until you set your
+location - open `/control` and use the **Location** section (search, **Current**, or
+`lat,lon`). Then check the status line at the top of `/control`: it shows the live
+source, count, and the exact failure reason if polling is failing. If you're far from
+an airport, also widen the **Radius** slider.
+
+**`source fetch failed: …` in the status line.** The reason in parentheses tells you
+what's wrong, measured *from the server*:
+- `DNS lookup failed (host)` - the server can't resolve that hostname. In Docker this
+  usually means the decoder container isn't on the same Docker network (see the Docker
+  section above).
+- `connection refused` / `host unreachable` / `timeout` - the host resolved but nothing
+  answered on that port; check the URL's port and that the decoder's web server is up
+  (`curl http://<host>:8080/data/aircraft.json` from the machine running Skylight).
+- `HTTP 429` - the public API is rate-limiting; Skylight now backs off automatically
+  and recovers on its own. Planes hold position on screen through brief outages.
+
+**Pointing at an existing dump1090 / readsb / PiAware feed.** Set the **Radio URL** in
+`/control` → Source to your feed's `aircraft.json` (dump1090-fa serves it at
+`http://<host>:8080/data/aircraft.json`) and switch the source to *radio*. No rebuild
+needed - it applies on the next poll.
+
+**Installer fails with `Unsupported architecture: armhf`.** You're on 32-bit
+Raspberry Pi OS; Node.js no longer ships 32-bit ARM builds. Re-flash with
+**Raspberry Pi OS (64-bit)** - every supported Pi (3/4/5, Zero 2 W) can run it.
+
+**Runways for my airport.** `/control` → Location → **Runways**: enter the ICAO or
+IATA code (e.g. `EGLL`, `EDDF`, `SNA`). Geometry comes from the public-domain
+OurAirports dataset; very small airfields sometimes lack surveyed runway endpoints,
+in which case you'll get a clear error.
+
+**Clock on the TV dashboard is wrong.** It shows the Pi's system time - fix the
+timezone with `sudo timedatectl set-timezone <Region/City>`.
 
 ## Configuration
 

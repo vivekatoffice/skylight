@@ -3,6 +3,16 @@
 Turn a freshly-flashed Raspberry Pi OS card into the Skylight appliance. Tested on a
 **Raspberry Pi 5** with **Raspberry Pi OS Bookworm (64-bit, Desktop)**.
 
+> **64-bit OS required.** Node.js has no 32-bit ARM builds, so the installer refuses
+> to run on 32-bit images. All supported Pis (3/4/5, Zero 2 W) run the 64-bit OS.
+
+> **No radio?** Skip the decoder bits and run against the free public API: after
+> install, set `Environment=DATA_SOURCE=api` in
+> `/etc/systemd/system/skylight-server.service` and `sudo systemctl daemon-reload &&
+> sudo systemctl restart skylight-server`. Already feeding PiAware/FR24 from another
+> box? Keep `DATA_SOURCE=radio` and point the **Radio URL** in `/control` → Source at
+> that feed's `aircraft.json`.
+
 ## 1. Provision the card (headless WiFi + SSH) - on your computer
 
 Flash Raspberry Pi OS (Desktop) to the card. With the card's **boot** partition mounted
