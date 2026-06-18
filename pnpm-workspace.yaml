@@ -6,6 +6,8 @@ packages:
 
 onlyBuiltDependencies:
   - esbuild
+  - onnxruntime-node
+  - sharp
 
 # Our lockfile is freshly resolved + pinned; don't reject just-published
 # transitive deps (electron-to-chromium / node-releases) on install.
