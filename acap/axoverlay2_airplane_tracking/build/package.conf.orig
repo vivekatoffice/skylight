@@ -1,0 +1,8 @@
+PACKAGENAME="Axoverlay2 example application"
+APPNAME="axoverlay2"
+VENDOR="Axis Communications"
+VENDORHOMEPAGELINK='<a href="https://www.axis.com" target="_blank">www.axis.com</a>'
+STARTMODE="never"
+APPMAJORVERSION="1"
+APPMINORVERSION="0"
+APPMICROVERSION="0"
